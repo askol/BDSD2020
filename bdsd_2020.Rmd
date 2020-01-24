@@ -33,7 +33,7 @@ Information includes:
 4. slope
 
 ```{r fig.width=4, fig.height=4,echo=FALSE}
-img <- readPNG("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/eqtl.png")
+img <- readPNG("eqtl.png")
  grid.raster(img)
 ```
 
@@ -62,7 +62,7 @@ names(tissueN) <- gsub("Cells_Cultured_fibroblasts",
                        names(tissueN))
 tissueN <- as.data.frame(tissueN)
 names(tissueN) <- c("tissue", "N")
-saveRDS(file = "")
+saveRDS(file = "Data/sampleSize.rds", tissueN)
 
 for (i in 1:length(files)){
     file <- paste0(dataDir, files[i])
@@ -95,7 +95,6 @@ for (i in 2:length(data)){
   tmp <- tmp %>% rename(!!tissues[i] := slope)
   betas <- full_join(betas, tmp, by=c("variant_id" , "gene_id", "chr"))
 }
-
 ## save ps 
 psFile <- paste0(dataDir, "ps.rds")
 saveRDS(file = psFile, ps)
@@ -106,13 +105,15 @@ saveRDS(file = betasFile, betas)
 ```
 
 Let's load the ps and betas variables
-```{r readRDS, echo=TRUE, cache=TRUE}
+```{r readRDS, echo=TRUE, cache=TRUE, eval=TRUE}
 options(width=100)
 dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
-betasFile = paste0(dataDir,"betas.rds")
-psFile <- paste0(dataDir, "ps.rds")
+betasFile = "Data/betas.rds"
+psFile <- "Data/ps.rds"
+nFile <- "Data/sampleSize.rds"
 betas = readRDS(file = betasFile)
 ps = readRDS(file = psFile)
+tissueN = readRDS(file = nFile)
 ```
 
 Now that we have some data to play with, we can start exploring how to perform some simple plotting functions using ggplot2.
@@ -166,9 +167,13 @@ One nice thing about ggplot is that the plot can be added to over multiple comma
 ### Sorting factor variables and overlaying plots
 One challenge of plotting categorical variables is deciding how to order them on the x-axis in a meaningful or attractive manner.  Here, because different tissues have different numbers of samples, it may be reasonable to organize the tissues by samples size.
 First, we'll merge the eqtl number data with the sample size data. 
-eqtl <- left_join(neqtl, tissueN, by="tissue")
+```{r order, echo=TRUE, eval=TRUE}
+neqtl <- left_join(neqtl, tissueN, by="tissue")
 neqtl$tissue <- factor(neqtl$tissue, 
                        levels = neqtl$tissue[order(neqtl$N, decreasing = T)])
+```
+Next we repeat the plot above.
+```{r repeat, eval=TRUE, echo=TRUE}
 p <- ggplot(neqtl, aes(x=tissue, y=neqtl)) + 
   geom_bar(stat="identity", fill = "steelblue") +
   theme_minimal() +
@@ -177,12 +182,22 @@ p <- ggplot(neqtl, aes(x=tissue, y=neqtl)) +
   xlab("Tissue") +
   ylab("Number of eQTL")
 print(p)
+```
+
+O.k. That's much better. But if we really want to know the relationship between sample size and the number of eQTL, then let's plot the number of sample of each tissue type on the same plot.
+To do this we have to do two things. First is to plot the sample size. We'll use geom_points to do this. The other thing, is that scale of the number of eQTL and number of samples is quite different. 
+```{r range, echo=TRUE, eval=TRUE}
+range(tissueN$N)
+range(neqtl$neqtl)
+factorN <- 494913/3288
+```
 
 ## now lets add the sample size for each tissue
-p <- p + geom_point(aes(x=tissue, y=N*600)) + 
-  scale_y_continuous(sec.axis = sec_axis(~./600, name = "Sample Size"))
+```{r scale, echo = TRUE, eval = TRUE}
+p <- p + geom_point(aes(x=tissue, y=N*150)) + 
+  scale_y_continuous(sec.axis = sec_axis(~./150, name = "Sample Size"))
 print(p)
-
+```
 
 
 tissSel <- c("gene_id", "Adipose_Subcutaneous", "Brain_Frontal_Cortex_BA9", 
