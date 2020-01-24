@@ -1,0 +1,232 @@
+---
+title: "BDSD 2020: Introduction to ggplot2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(png)
+library(grid)
+library(dplyr)
+library(data.table)
+library(ggplot2)
+
+setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
+```
+## ggplot2
+
+Say something about ggplot2
+
+## Dataset: Genotype Tissue Expression Study (v7)
+
+Data is accessible from: <https://gtexportal.org/home/datasets>
+
+The actual file is: <https://storage.googleapis.com/gtex_analysis_v7/single_tissue_eqtl_data/GTEx_Analysis_v7_eQTL.tar.gz>
+
+The unzipped file contain information about eQTL from 48 tissues.  
+Information includes:
+
+1. Name of genetic variant
+2. Name of gene
+3. pval_nominal
+4. slope
+
+```{r fig.width=4, fig.height=4,echo=FALSE}
+img <- readPNG("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/eqtl.png")
+ grid.raster(img)
+```
+
+The data from each tissue has been read in and stored in three data.frames.  The code to do this is here:
+```{r readData, eval=FALSE}
+dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
+files <- dir(dataDir, pattern = "pairs")
+tissues <- gsub("\\.v7.+","", files)
+data <- list()
+
+sampFile <- paste0(dataDir, "GTEx_Analysis_v8_Annotations_SampleAttributesDS.txt")
+sampInfo <- read.table(file = sampFile, header=T, as.is=T, sep="\t", quote = "")
+sampInfo <- sampInfo %>% mutate(ID = gsub("-.+-.+$","",SAMPID))
+ID <- sapply(sampInfo$SAMPID, strsplit, split="-")
+ID <- sapply(ID, function(x){paste(x[1],x[2], sep="-")})
+ID <- unlist(ID)
+sampInfo$ID <- ID
+a <- sampInfo %>% distinct(ID, SMTSD)
+tissueN <- table(sampInfo$SMTSD)
+names(tissueN) <- gsub(" - " , "_" , names(tissueN))
+names(tissueN) <- gsub(" " , "_" , names(tissueN))
+names(tissueN) <- gsub("\\(" , "" , names(tissueN))
+names(tissueN) <- gsub("\\)" , "" , names(tissueN))
+names(tissueN) <- gsub("Cells_Cultured_fibroblasts", 
+                       "Cells_Transformed_fibroblasts", 
+                       names(tissueN))
+tissueN <- as.data.frame(tissueN)
+names(tissueN) <- c("tissue", "N")
+saveRDS(file = "")
+
+for (i in 1:length(files)){
+    file <- paste0(dataDir, files[i])
+    print(paste0("Reading file", file)) 
+    data[[i]] <-  fread(file, header=T)
+}
+
+## collect p-values
+ps <- data[[1]][,c("variant_id","gene_id", "pval_nominal")] %>% 
+   mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
+ps <- ps %>% rename(!!tissues[1] := pval_nominal)
+
+for (i in 2:length(data)){
+  print(paste0("Mergeing ",tissues[i]))  
+  tmp <- data[[i]][, c("variant_id","gene_id","pval_nominal")] %>% 
+    mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
+  tmp <- tmp %>% rename(!!tissues[i] := pval_nominal)
+  ps <- full_join(ps, tmp, by=c("variant_id" , "gene_id", "chr"))
+}
+
+## collect betas
+betas <- data[[1]][,c("variant_id","gene_id", "slope")] %>% 
+   mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
+betas <- betas %>% rename(!!tissues[1] := slope)
+
+for (i in 2:length(data)){
+  print(paste0("Mergeing ",tissues[i]))  
+  tmp <- data[[i]][, c("variant_id","gene_id","slope")] %>% 
+   mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
+  tmp <- tmp %>% rename(!!tissues[i] := slope)
+  betas <- full_join(betas, tmp, by=c("variant_id" , "gene_id", "chr"))
+}
+
+## save ps 
+psFile <- paste0(dataDir, "ps.rds")
+saveRDS(file = psFile, ps)
+
+## save betas
+betasFile = paste0(dataDir,"betas.rds")
+saveRDS(file = betasFile, betas)
+```
+
+Let's load the ps and betas variables
+```{r readRDS, echo=TRUE, cache=TRUE}
+options(width=100)
+dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
+betasFile = paste0(dataDir,"betas.rds")
+psFile <- paste0(dataDir, "ps.rds")
+betas = readRDS(file = betasFile)
+ps = readRDS(file = psFile)
+```
+
+Now that we have some data to play with, we can start exploring how to perform some simple plotting functions using ggplot2.
+
+## Number of eQTL as a function of tissue
+First we'll plot the number of eQTL as a function of tissue using a historgram. Since a non-NA cell indicates that it is an eQTL, all we have to do is sum the number of non-NA cells in a column (tissue) to count the number of eQTL.
+
+```{r makeeqtl, echo=TRUE, cache=TRUE}
+neqtl <- ps %>% select(-chr, -variant_id, -gene_id) 
+neqtl <- colSums(!is.na(neqtl))
+neqtl <- data.frame(tissue = names(neqtl), neqtl = neqtl)
+```
+
+Plots created with ggplot start with defining the dataset and the variables that will make up the x and y axis. 
+This is done using the ggplot function, defining data, and the aesthetic variables (aes).
+```{r gg, echo=TRUE, eval=TRUE}
+options(width=100)
+p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl)) 
+plot(p)
+```
+
+Next we add the geom_ 'function' that defines the type of plot. Here we use  geom_bar, because we want to make a barplot. These functions take arguments that are specific to the plot type and graphical elements specific to the plot.
+```{r bar, echo=T, eval=T}
+options(width=100)
+p <- p + geom_bar(stat="identity", fill = "steelblue") 
+print(p)
+```
+
+stat="identity" means that the value in the data.frame is the value to be plotted. The default is stat="count", in which case it will count the number of elements in the data.frame column.
+
+There are a few things that we can do to make this plot look nicer.
+
+1. I find the grey background unattractive. There are predefined themes that provide alternatives. The one I use often is theme_minimal.
+2. Angle the x-axis labels (tissues) so that they are legible.
+3. Rename the x- and y-axis.
+
+```{r barplot, echo=TRUE, eval=TRUE}
+options(width=100)
+p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl)) + 
+  geom_bar(stat="identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Number of eQTL")
+  print(p)
+```
+
+One nice thing about ggplot is that the plot can be added to over multiple commands. This allows conditional statement to help determine what will be contained in the plot. 
+
+### Sorting factor variables and overlaying plots
+One challenge of plotting categorical variables is deciding how to order them on the x-axis in a meaningful or attractive manner.  Here, because different tissues have different numbers of samples, it may be reasonable to organize the tissues by samples size.
+First, we'll merge the eqtl number data with the sample size data. 
+eqtl <- left_join(neqtl, tissueN, by="tissue")
+neqtl$tissue <- factor(neqtl$tissue, 
+                       levels = neqtl$tissue[order(neqtl$N, decreasing = T)])
+p <- ggplot(neqtl, aes(x=tissue, y=neqtl)) + 
+  geom_bar(stat="identity", fill = "steelblue") +
+  theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Number of eQTL")
+print(p)
+
+## now lets add the sample size for each tissue
+p <- p + geom_point(aes(x=tissue, y=N*600)) + 
+  scale_y_continuous(sec.axis = sec_axis(~./600, name = "Sample Size"))
+print(p)
+
+
+
+tissSel <- c("gene_id", "Adipose_Subcutaneous", "Brain_Frontal_Cortex_BA9", 
+             "Breast_Mammary_Tissue","Colon_Transverse", "Esophagus_Mucosa", 
+             "Heart_Left_Ventricle","Liver", "Lung", "Muscle_Skeletal", 
+             "Spleen", "Skin_Sun_Exposed_Lower_leg","Stomach")
+bs <- betas %>% filter(chr %in% c(1,6,20)) %>%
+  select(chr, !!tissSel) %>% as.data.table()
+bs <- melt(bs, measure=3:length(tissSel), id = 1:2, 
+           variable.name="tissue", value.name="beta")
+bs <- bs %>% group_by(chr, gene_id, tissue) %>% summarize(m.beta=mean(beta, na.rm=T)) 
+bs <- bs %>% filter(!is.na(m.beta))
+
+## box plot and violin plots ##
+p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
+  geom_boxplot() + theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta")
+  
+print(p)
+
+## look to see if distribution differs by chr
+p <- ggplot(bs, aes(x = tissue, y = m.beta, fill = chr)) + 
+  geom_boxplot() + theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta")
+
+print(p)
+## create the same plot using a violin plot
+
+
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
