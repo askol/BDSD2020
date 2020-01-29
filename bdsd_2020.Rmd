@@ -11,6 +11,8 @@ library(grid)
 library(dplyr)
 library(data.table)
 library(ggplot2)
+library(knitr)
+library(ggrepel)
 
 setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
 ```
@@ -174,6 +176,7 @@ neqtl$tissue <- factor(neqtl$tissue,
 ```
 Next we repeat the plot above.
 ```{r repeat, eval=TRUE, echo=TRUE}
+options(width=100)
 p <- ggplot(neqtl, aes(x=tissue, y=neqtl)) + 
   geom_bar(stat="identity", fill = "steelblue") +
   theme_minimal() +
@@ -184,7 +187,7 @@ p <- ggplot(neqtl, aes(x=tissue, y=neqtl)) +
 print(p)
 ```
 
-O.k. That's much better. But if we really want to know the relationship between sample size and the number of eQTL, then let's plot the number of sample of each tissue type on the same plot.
+O.k. That's much better. But if we really want to know the relationship between sample size and the number of eQTL, then let's plot the number of samples of each tissue type on the same plot.
 To do this we have to do two things. First is to plot the sample size. We'll use geom_points to do this. The other thing, is that scale of the number of eQTL and number of samples is quite different. 
 ```{r range, echo=TRUE, eval=TRUE}
 range(tissueN$N)
@@ -192,56 +195,159 @@ range(neqtl$neqtl)
 factorN <- 494913/3288
 ```
 
-## now lets add the sample size for each tissue
 ```{r scale, echo = TRUE, eval = TRUE}
-p <- p + geom_point(aes(x=tissue, y=N*150)) + 
-  scale_y_continuous(sec.axis = sec_axis(~./150, name = "Sample Size"))
+options(width=100)
+p <- p + geom_point(aes(x=tissue, y=N*factorN)) + 
+  scale_y_continuous(sec.axis = sec_axis(~./factorN, name = "Sample Size"))
 print(p)
 ```
 
+## Distributions
+Now we'll consider the effect sizes of eQTL in order to see how to plot distributions  (the relative frequence of the variable's values).
+Let's first use the histogram to look at the distribution of eQTL effects.  To make things simpler, and to demonstrate how to compare distributions, we will focus on two tissues: "Skeletal Muscle and Subcutaneous Adipose"
 
+```{r betaprep, echo=T, eval=T}
+TissSel <- c("Muscle_Skeletal", "Adipose_Subcutaneous")
+bs <- betas %>% select(!!TissSel)
+bs <- bs[rowSums(!is.na(bs)) > 0,]
+bs <- as.data.table(bs)
+bs <- melt(bs, measure=1:2, variable.name="tissue", value.name = "beta", na.rm=TRUE)
+```
+
+The function `melt` is very important for preparing data for `ggplot`. It transforms a data.frame from a wide rectangle to a long rectangle, whereby a subset of the column headers are converted to a column of values (specificied by variable.name), and the values in the converted columns are converted to another column (specificed by value.name).  If there are columns that are not to be "longified" they are specified by id.vars.
+```{r printbetas, echo=T, eval=T}
+betas[1:4,TissSel]
+```
+This is what the transformation looks like for the data that were going to be plotting:
+```{r echo=T, eval=T}
+bs[1:4,]
+```
+
+A histrogram of the distribution of all the values is created using `geom_hist`
+```{r echo=T, eval=T}
+options(width=100)
+p <- ggplot(data=bs, aes(x = abs(beta))) +
+  geom_histogram(binwidth=.1, colour="black", fill="white")
+print(p)
+```
+If you prefer density functions, you can use `geom_density`
+```{r, echo=T, eval=T}
+p <- ggplot(bs, aes(x = abs(beta))) + geom_density(adjust = 1.15)
+print(p)
+```
+
+What we really wanted to do was compare the distribution of effect sizes for different tissue types. To do this, we will use the fill attribute of the density function that is avalable within the `ggplot` function (or the `geom_density` function)
+```{r densitytwotissues, echo=T, eval=TRUE}
+options(width=100)
+p <- ggplot(bs, aes(x=beta, fill=tissue)) + geom_density(alpha=.3) + 
+  scale_fill_discrete(name = "Tissue", labels=c("Muscle (skeletal)", "Adipose (subcutaneous)")) + 
+  theme_minimal() + theme(legend.title.align=0.5)
+print(p)       
+```
+## Boxplots and violin plots
+What if we wanted to compare more than two tissues. It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative very quickly. An alternative is to use a box and wisker plot. First we will select a subset of tssues and create an appropriately formated `data.frame`. We will also summarize the eQTL effects by gene, by calculating the mean eQTL effect for each gene. 
+```{r echo=T, eval=T}
 tissSel <- c("gene_id", "Adipose_Subcutaneous", "Brain_Frontal_Cortex_BA9", 
              "Breast_Mammary_Tissue","Colon_Transverse", "Esophagus_Mucosa", 
              "Heart_Left_Ventricle","Liver", "Lung", "Muscle_Skeletal", 
              "Spleen", "Skin_Sun_Exposed_Lower_leg","Stomach")
-bs <- betas %>% filter(chr %in% c(1,6,20)) %>%
-  select(chr, !!tissSel) %>% as.data.table()
+tissueNabrv <- tissueN[tissueN$tissue %in% tissSel,]
+tissueNabrv$tissue <- droplevels(tissueNabrv$tissue)
+tissueNabrv$tissue <- factor(tissueNabrv$tissue, levels = 
+                               tissueNabrv$tissue[order(tissueNabrv$N,
+                                                        decreasing=TRUE)])
+bs <- betas %>% select(chr, !!tissSel) %>% as.data.table()
 bs <- melt(bs, measure=3:length(tissSel), id = 1:2, 
            variable.name="tissue", value.name="beta")
-bs <- bs %>% group_by(chr, gene_id, tissue) %>% summarize(m.beta=mean(beta, na.rm=T)) 
-bs <- bs %>% filter(!is.na(m.beta))
-
-## box plot and violin plots ##
+bs <- bs %>% group_by(gene_id, tissue) %>% 
+  mutate(m.beta=mean(beta, na.rm=T)) %>% filter(row_number() == 1) %>%
+  select(-beta) %>% ungroup()
+bs <- bs %>% filter(!is.na(m.beta)) %>% 
+  mutate(tissue = factor(tissue, levels = levels(tissueNabrv$tissue)))
+```
+Now we will plot these gene-based mean eQTL effect sizes across tissues. 
+```{r echo=T, eval=T}
+options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
   geom_boxplot() + theme_minimal() +
   theme(text=element_text(size=10),
         axis.text.x=element_text(angle=60, hjust=1)) +
   xlab("Tissue") +
-  ylab("Mean Beta")
+  ylab("Mean Beta") 
   
 print(p)
-
-## look to see if distribution differs by chr
+```
+Now, what if we wanted to know if the effect size distribution differs by chromosomal location. To do this, we can use another aesthitic attribute. In this case we'll use the fill attribute.
+```{r echo=T, eval=T}
+bs$chr <- factor(bs$chr, levels = c("1","6","20"))
+options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta, fill = chr)) + 
   geom_boxplot() + theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta") +
+  scale_fill_discrete(name = "Chromosome")
+
+print(p)
+```
+## The violin plot
+The barplot gives us valuable information about the distribution, but is not as informative as the full distribution. The violin plot is a way to better visualize the full distribution. Not surprisingly, the plot function is `geom_violin`.
+```{r violin, echo=T, eval=T}
+p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
+  geom_violin() + theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta") 
+  
+print(p)
+```
+It is not uncommon to plot the points on top of the violins. Our data happens to have a very large number of points. In order to "thin" out the data, we can use the `alpha` parameter in the `geom_jitter` function.
+```{r violpoints, echo=T, eval=T}
+p <- p + geom_jitter(width = 0.1, alpha=.01)
+print(p)
+```
+
+## Adding text to plots
+ggplot makes adding labels to plots pretty easy. As an example, let's label the genes that have the larges and smallest value in each tissue on each chromosome. First, it's useful to identify the minimum and maximum value for each tissue/chromosome.
+```{r label, eval=T, echo=T}
+bs <- bs %>% group_by(tissue, chr) %>% 
+  mutate(min.lab = ifelse(m.beta == min(m.beta), gsub("ENSG0+","",gene_id), ""),
+         max.lab = ifelse(m.beta == max(m.beta), gsub("ENSG0+","",gene_id), ""),
+         lab = ifelse(m.beta %in% c(max(m.beta), min(m.beta)), 
+                                    gsub("ENSG0+","", gene_id), ""))
+```
+Now we use `geom_text`.
+```{r plotlabel, eval=T, echo=T}
+options(width=120)
+p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
+  geom_boxplot() + 
+  geom_text(aes(label = max.lab), size = 2, angle=0, vjust=-1) +
+  geom_text(aes(label = min.lab), size = 2, angle=0, vjust=2) +
+  theme_minimal() +
   theme(text=element_text(size=10),
         axis.text.x=element_text(angle=60, hjust=1)) +
   xlab("Tissue") +
   ylab("Mean Beta")
 
 print(p)
-## create the same plot using a violin plot
+``` 
+When points are this close together, it's really trick to get the labels to look nice. There is a fantastic package called `repel` which can help.  Here's how you use it.
+```{r repel, echo=T, eval=T}
+options(width=120)
+p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
+  geom_boxplot() + 
+  geom_text_repel(data = bs, aes(label = max.lab), size = 2, box.padding = .1, 
+                  nudge_x=-.5, angle=0) +
+   geom_text_repel(data = bs, aes(label = min.lab), size = 2, box.padding = .1, 
+                  nudge_x=-.5, angle=0) +
+  theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta") 
 
-
-
-
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+print(p)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
