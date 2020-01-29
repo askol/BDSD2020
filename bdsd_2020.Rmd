@@ -13,7 +13,7 @@ library(data.table)
 library(ggplot2)
 library(knitr)
 library(ggrepel)
-
+library(annotables)
 setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
 ```
 ## ggplot2
@@ -73,29 +73,29 @@ for (i in 1:length(files)){
 }
 
 ## collect p-values
-ps <- data[[1]][,c("variant_id","gene_id", "pval_nominal")] %>% 
+ps <- data[[1]][,c("variant_id","symbol", "pval_nominal")] %>% 
    mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
 ps <- ps %>% rename(!!tissues[1] := pval_nominal)
 
 for (i in 2:length(data)){
   print(paste0("Mergeing ",tissues[i]))  
-  tmp <- data[[i]][, c("variant_id","gene_id","pval_nominal")] %>% 
+  tmp <- data[[i]][, c("variant_id","symbol","pval_nominal")] %>% 
     mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
   tmp <- tmp %>% rename(!!tissues[i] := pval_nominal)
-  ps <- full_join(ps, tmp, by=c("variant_id" , "gene_id", "chr"))
+  ps <- full_join(ps, tmp, by=c("variant_id" , "symbol", "chr"))
 }
 
 ## collect betas
-betas <- data[[1]][,c("variant_id","gene_id", "slope")] %>% 
+betas <- data[[1]][,c("variant_id","symbol", "slope")] %>% 
    mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
 betas <- betas %>% rename(!!tissues[1] := slope)
 
 for (i in 2:length(data)){
   print(paste0("Mergeing ",tissues[i]))  
-  tmp <- data[[i]][, c("variant_id","gene_id","slope")] %>% 
+  tmp <- data[[i]][, c("variant_id","symbol","slope")] %>% 
    mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
   tmp <- tmp %>% rename(!!tissues[i] := slope)
-  betas <- full_join(betas, tmp, by=c("variant_id" , "gene_id", "chr"))
+  betas <- full_join(betas, tmp, by=c("variant_id" , "symbol", "chr"))
 }
 ## save ps 
 psFile <- paste0(dataDir, "ps.rds")
@@ -116,6 +116,14 @@ nFile <- "Data/sampleSize.rds"
 betas = readRDS(file = betasFile)
 ps = readRDS(file = psFile)
 tissueN = readRDS(file = nFile)
+
+## substitute gene names for ensembl ids in ps and betas
+betas <- betas %>% mutate(gene_id = gsub("\\..+","", gene_id))
+betas <- left_join(betas, grch38[,c("ensgene","symbol")], by = c("gene_id" = "ensgene")) %>% mutate(symbol = ifelse(is.na(symbol), gene_id, symbol))
+
+ps <- ps %>% mutate(gene_id = gsub("\\..+", "", gene_id))
+ps <- left_join(ps, grch38[,c("ensgene","symbol")], by=c("gene_id" = "ensgene")) %>%
+  mutate(symbol = ifelse(is.na(symbol), gene_id, symbol))
 ```
 
 Now that we have some data to play with, we can start exploring how to perform some simple plotting functions using ggplot2.
@@ -247,7 +255,8 @@ print(p)
 ## Boxplots and violin plots
 What if we wanted to compare more than two tissues. It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative very quickly. An alternative is to use a box and wisker plot. First we will select a subset of tssues and create an appropriately formated `data.frame`. We will also summarize the eQTL effects by gene, by calculating the mean eQTL effect for each gene. 
 ```{r echo=T, eval=T}
-tissSel <- c("gene_id", "Adipose_Subcutaneous", "Brain_Frontal_Cortex_BA9", 
+tissSel <- c("symbol", "Adipose_Subcutaneous", 
+             "Brain_Frontal_Cortex_BA9", 
              "Breast_Mammary_Tissue","Colon_Transverse", "Esophagus_Mucosa", 
              "Heart_Left_Ventricle","Liver", "Lung", "Muscle_Skeletal", 
              "Spleen", "Skin_Sun_Exposed_Lower_leg","Stomach")
@@ -259,7 +268,7 @@ tissueNabrv$tissue <- factor(tissueNabrv$tissue, levels =
 bs <- betas %>% select(chr, !!tissSel) %>% as.data.table()
 bs <- melt(bs, measure=3:length(tissSel), id = 1:2, 
            variable.name="tissue", value.name="beta")
-bs <- bs %>% group_by(gene_id, tissue) %>% 
+bs <- bs %>% group_by(symbol, tissue) %>% 
   mutate(m.beta=mean(beta, na.rm=T)) %>% filter(row_number() == 1) %>%
   select(-beta) %>% ungroup()
 bs <- bs %>% filter(!is.na(m.beta)) %>% 
@@ -313,10 +322,10 @@ print(p)
 ggplot makes adding labels to plots pretty easy. As an example, let's label the genes that have the larges and smallest value in each tissue on each chromosome. First, it's useful to identify the minimum and maximum value for each tissue/chromosome.
 ```{r label, eval=T, echo=T}
 bs <- bs %>% group_by(tissue, chr) %>% 
-  mutate(min.lab = ifelse(m.beta == min(m.beta), gsub("ENSG0+","",gene_id), ""),
-         max.lab = ifelse(m.beta == max(m.beta), gsub("ENSG0+","",gene_id), ""),
+  mutate(min.lab = ifelse(m.beta == min(m.beta), gsub("ENSG0+","", symbol), ""),
+         max.lab = ifelse(m.beta == max(m.beta), gsub("ENSG0+","", symbol), ""),
          lab = ifelse(m.beta %in% c(max(m.beta), min(m.beta)), 
-                                    gsub("ENSG0+","", gene_id), ""))
+                                    gsub("ENSG0+","", symbol), ""))
 ```
 Now we use `geom_text`.
 ```{r plotlabel, eval=T, echo=T}
@@ -351,3 +360,5 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 print(p)
 ```
 
+## Creating a matrix of plots to simply plotting multiple variables per plot
+Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can image, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use facet_grid.
