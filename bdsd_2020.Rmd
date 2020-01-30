@@ -108,7 +108,6 @@ saveRDS(file = betasFile, betas)
 
 Let's load the ps and betas variables
 ```{r readRDS, echo=TRUE, cache=TRUE, eval=TRUE}
-options(width=100)
 dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
 betasFile = "Data/betas.rds"
 psFile <- "Data/ps.rds"
@@ -342,6 +341,7 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 
 print(p)
 ``` 
+
 When points are this close together, it's really trick to get the labels to look nice. There is a fantastic package called `repel` which can help.  Here's how you use it.
 ```{r repel, echo=T, eval=T}
 options(width=120)
@@ -361,4 +361,81 @@ print(p)
 ```
 
 ## Creating a matrix of plots to simply plotting multiple variables per plot
-Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can image, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use facet_grid.
+Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can image, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use `facet_grid`.
+First, in order to make the plot look a little nicer we will add "chr" to the front of the chromosome number.
+```{r} 
+bs$chr <- factor(paste0("chr", bs$chr), levels = c("chr1","chr6","chr20"))
+```
+
+```{r facet, echo=T, eval=T}
+options(width=120)
+p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
+  geom_boxplot() + 
+  facet_grid(chr~.) +
+  theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta") 
+
+print(p)
+```
+
+If you prefer have chromsome along the verticle axis, just change the `chr~.` to `.~chr`
+```{r faceth, echo=T, eval=T}
+options(width=120)
+p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
+  geom_boxplot() + 
+  facet_grid(.~chr) +
+  theme_minimal() +
+  theme(text=element_text(size=10),
+        axis.text.x=element_text(angle=60, hjust=1)) +
+  xlab("Tissue") +
+  ylab("Mean Beta") 
+
+print(p)
+```
+## Plotting similarity
+Next we are going to explore heatmaps, which are useful for comparing the pairwise correlation or other similarity measures between variables.
+For our data, we will calculate the proportion of eQTL shared between tissues. We can do this using the `ps` data frame which has tissues as columns, variant-gene combinations as rows, and each cell contains a p-value is the variant-gene is an eQTL for the tissue and NA otherwise.  We will turn these into counts in the following way:
+```{r corr, eval=T, echo=T}
+tissSel <- c("Adipose_Subcutaneous", 
+             "Brain_Frontal_Cortex_BA9", 
+             "Breast_Mammary_Tissue","Colon_Transverse", "Esophagus_Mucosa", 
+             "Heart_Left_Ventricle","Liver", "Lung", "Muscle_Skeletal", 
+             "Spleen", "Skin_Sun_Exposed_Lower_leg","Stomach")
+tissim <- ps[, tissSel]
+tissim <- tissim[rowSums(!is.na(tissim)) > 0 , ]
+tissim <- 1*(is.na(tissim) == FALSE)
+tissim <- Matrix(tissim, sparse=T)
+
+tisNshare <- t(tissim) %*% tissim
+tisNeither<- nrow(tissim) - t(tissim == 0) %*% (tissim == 0) 
+tisShareProp <- tisNshare/tisNeither
+tisShareProp <- as.matrix(tisShareProp)
+tisShareProp <- as.data.table(tisShareProp, stringAsFactor=FALSE)
+tisShareProp$Tissue1 <- names(tisShareProp)
+
+toplot <- melt(tisShareProp, id = "Tissue1",  variable.name="Tissue2", value.name = "PropShare")
+toplot <- toplot %>% mutate(Tissue1 = factor(Tissue1, levels=names(tisShareProp)),
+                            Tissue2 = factor(Tissue2, levels=names(tisShareProp)))
+toplot <- toplot %>% filter(Tissue1 != Tissue2)
+```
+O.k. Now that we've calculate the proportion of eQTL that tissue pairs share in common, we can plot them in a number of ways. One simple way is to use a scatter plot.
+```{r points}
+p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) + 
+  geom_point(aes(size = PropShare, color = PropShare)) + 
+  scale_size_continuous(name = "Prop eQTL Shared", 
+                      range=c(.5,14), 
+                      limits=c(.1,.45)) +
+  theme(axis.text.x = element_text(angle = 45), 
+        text=element_text(size=10, hjust=1), 
+        axis.text.y = element_text(angle = 45),
+        axis.title = element_text(hjust=.5)) +
+  xlab("Tissue") + ylab("Tissue")
+
+  ## COLOR LABELS TO HELP IDENTIFY WHO IS WHO ##
+  #theme(axis.text.x = element_text(angle = 90, color = STclr)) + 
+  #scale_color_manual(values=clrLvl)
+print(p)
+```
