@@ -1,6 +1,8 @@
 ---
-title: "BDSD 2020: Introduction to ggplot2"
-output: html_document
+title: 'BDSD 2020: Introduction to ggplot2'
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +17,8 @@ library(knitr)
 library(ggrepel)
 library(annotables)
 library(Matrix)
-setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
+library(pheatmap)
+setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
 ```
 ## ggplot2
 
@@ -109,7 +112,6 @@ saveRDS(file = betasFile, betas)
 
 Let's load the ps and betas variables
 ```{r readRDS, echo=TRUE, cache=TRUE, eval=TRUE}
-dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
 betasFile = "Data/betas.rds"
 psFile <- "Data/ps.rds"
 nFile <- "Data/sampleSize.rds"
@@ -132,7 +134,7 @@ Now that we have some data to play with, we can start exploring how to perform s
 First we'll plot the number of eQTL as a function of tissue using a historgram. Since a non-NA cell indicates that it is an eQTL, all we have to do is sum the number of non-NA cells in a column (tissue) to count the number of eQTL.
 
 ```{r makeeqtl, echo=TRUE, cache=TRUE}
-neqtl <- ps %>% select(-chr, -variant_id, -gene_id) 
+neqtl <- ps %>% select(-chr, -variant_id, -gene_id, -symbol) 
 neqtl <- colSums(!is.na(neqtl))
 neqtl <- data.frame(tissue = names(neqtl), neqtl = neqtl)
 ```
@@ -446,19 +448,106 @@ A more common alternative for plotting similarity data is a heatmap. The way to 
 p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
   geom_tile(aes(fill = PropShare)) +
    theme(axis.text.x = element_text(angle = 45), 
-        text=element_text(size=10, hjust=1), 
+        axis.text=element_text(size=12, hjust=1), 
         axis.text.y = element_text(angle = 45),
-        axis.title = element_text(hjust=.5),
-        legend.title.align = .5) +
-  scale_fill_continuous(name = "Proportion\neQTL Shared") +
+        axis.title = element_text(hjust=.5)) +
   coord_equal() +
-  scale_fill_gradient(low = "white", high = "red") +
+  scale_fill_gradient(name = "Proportion\nneQTL shared", 
+                      low = "white", high = "red") +
   xlab("Tissue") + ylab("Tissue") 
 print(p)
 ```
 
 Sometimes it's nice to add the actual value in the cell (provided the matrix isn't too large)
 ```{r tileText, echo=T, eval=T}
-p <- p + 
-``
+p <- p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
+  geom_tile(aes(fill = PropShare)) +
+   theme(axis.text.x = element_text(angle = 45), 
+        axis.text=element_text(size=12, hjust=1), 
+        axis.text.y = element_text(angle = 45),
+        axis.title = element_text(hjust=.5)) +
+  coord_equal() +
+  scale_fill_gradient(name = "Proportion\nneQTL shared", 
+                      low = "white", high = "red") +
+  xlab("Tissue") + ylab("Tissue") + 
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5) 
+ 
+print(p)
+```
+
+The other common need when plotting similarities is to organize the columns and rows so as to show patterns, which makes interpretting and communicating your results easier. Some heatmap function in R will do this for you. With a couple extra steps you can do it with geom_tile too.  We will employ the heirachicical clustering function,`hclust`, to do this. 
+First we reshape the data, which we would have to do for any other heatmap function.
+
+```{r cast, echo=T, eval=T}
+tp2 <- reshape2::dcast(toplot, Tissue1 ~ Tissue2, 
+                       value.var = "PropShare") 
+  rownames(tp2) <- tp2$Tissue1 
+tp2 <- tp2 %>% select(-Tissue1) %>% as.matrix()
+tp2[1:4,1:4]
+```
+
+Next we cluster the data and determine the ordering of the rows/columns, and then reorder the tissue variables.
+
+```{r clust, eval=T, echo=T}
+  ord <- hclust( dist(tp2, method = "euclidean"), method = "ward.D" )$order
+
+  toplot$Tissue1 <- factor(toplot$Tissue1, levels=colnames(tp2)[ord])
+  toplot$Tissue2 <- factor(toplot$Tissue2, levels=colnames(tp2)[ord])
+```
+
+Now we perform the `geom_tile` identically as before, except with the reordered columns.
+
+```{r tileReorder, echo=T, eval=T}
+p <- p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
+  geom_tile(aes(fill = PropShare)) +
+   theme(axis.text.x = element_text(angle = 45), 
+        axis.text=element_text(size=12, hjust=1), 
+        axis.text.y = element_text(angle = 45),
+        axis.title = element_text(hjust=.5)) +
+  coord_equal() +
+  scale_fill_gradient(name = "Proportion\nneQTL shared", 
+                      low = "white", high = "red") +
+  xlab("Tissue") + ylab("Tissue") + 
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5) 
+ 
+print(p)
+```
+
+One of the heamap functions that will do the clustering automatically is `pheatmap`. `heatmap.2` is another, which is within the `gplots` package. `pheatmap` uses hclust internally and allows you to change `hclust` arguements inside the `pheatmap` function.
+```{r pheat, echo=T, eval=T}
+pheatmap(tp2)
+```
+
+While the cladogram is informative, this might be a more attractive plot without it.
+
+```{r pheatnoclust, echo=T, eval=T}
+pheatmap(tp2, cluster_rows=FALSE, cluster_cols=FALSE)
+```
+
+Unforunately, when you don't cluster the rows or columns it not only omits the cladogram, but it doesn't perform the clustering either. We can apply the same trick we did previously to reorder the rows and columns, however this time we have to literally reorder the rows and columns. 
+`pheatmap` aslo makes it very easy to add the value being plotted into the figure. 
+```{r reorder, echo=T, eval=T}
+  ord <- hclust( dist(tp2, method = "euclidean"), method = "ward.D" )$order
+  tp2 <- tp2[ord, ord]
+  pheatmap(tp2, cluster_rows=FALSE, cluster_cols=FALSE, display_numbers=TRUE)
+```
+
+Having the correct color scale can make a big differce in the effectiveness of a heatmap, and interestingly, the bst colors palletes for a dataset will often differ as a function of the application.
+RColorBrewer is a very popular package from which to select predefined color palettes.  To see what pallets are available, you can. . .
+```{r rcb, eval=T, echo=T}
+display.brewer.all()
+```
+To use a pallete while plotting, we can do the following. . .
+```{r plotrcb, eval=T, echo=T}
+  pheatmap(tp2, color=brewer.pal(n=8, name="YlOrRd"))
+```
+In `ggplot` there is a lot more flexibility in how colors are chosen. One really useful arguements from within 
+
+## Useful Links
+Colors
+<https://www.nceas.ucsb.edu/~frazier/RSpatialGuides/colorPaletteCheatsheet.pdf>
+
+
 
