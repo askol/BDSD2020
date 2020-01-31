@@ -14,6 +14,7 @@ library(ggplot2)
 library(knitr)
 library(ggrepel)
 library(annotables)
+library(Matrix)
 setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
 ```
 ## ggplot2
@@ -426,7 +427,7 @@ O.k. Now that we've calculate the proportion of eQTL that tissue pairs share in 
 p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) + 
   geom_point(aes(size = PropShare, color = PropShare)) + 
   scale_size_continuous(name = "Prop eQTL Shared", 
-                      range=c(.5,14), 
+                      range=c(.5,8), 
                       limits=c(.1,.45)) +
   theme(axis.text.x = element_text(angle = 45), 
         text=element_text(size=10, hjust=1), 
@@ -439,3 +440,25 @@ p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
   #scale_color_manual(values=clrLvl)
 print(p)
 ```
+
+A more common alternative for plotting similarity data is a heatmap. The way to make a heatmap using ggplot is using `geom_tile`, although many folks prefer alternative heatmapping functions. We'll explore one of them shortly.  `Geom_tile` works very much like all other geom type functions. . .
+```{r tile, echo=T, eval=TRUE}
+p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
+  geom_tile(aes(fill = PropShare)) +
+   theme(axis.text.x = element_text(angle = 45), 
+        text=element_text(size=10, hjust=1), 
+        axis.text.y = element_text(angle = 45),
+        axis.title = element_text(hjust=.5),
+        legend.title.align = .5) +
+  scale_fill_continuous(name = "Proportion\neQTL Shared") +
+  coord_equal() +
+  scale_fill_gradient(low = "white", high = "red") +
+  xlab("Tissue") + ylab("Tissue") 
+print(p)
+```
+
+Sometimes it's nice to add the actual value in the cell (provided the matrix isn't too large)
+```{r tileText, echo=T, eval=T}
+p <- p + 
+``
+
