@@ -31,12 +31,15 @@ library(annotables)
 library(Matrix)
 library(RColorBrewer)
 library(pheatmap)
-if (grepl("/Users/",getwd())){
-  setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
-}else{
-  if (grepl("/home/win/",getwd())){
-    setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
-  }
+##if (grepl("/Users/",getwd())){
+##  setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
+##}else{
+##  if (grepl("/home/win/",getwd())){
+##    setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
+##  }
+
+## BDSD session
+setwd("~/workshop_files")
 }
 ```
 # Introduction: What is ggplot2
@@ -86,7 +89,7 @@ img <- readPNG("eqtl.png")
 ```
 
 ## Data construction
-The data from each tissue has been read in and stored in three data.frames.  The code to do this is here:
+The data from each tissue has been read in and stored in three data.frames.  The code to do this (not needed for BDSD) is here:
 
 ```{r readData, eval=FALSE}
 dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
@@ -158,12 +161,12 @@ saveRDS(file = betasFile, betas)
 
 Let's load the ps and betas variables
 ```{r readRDS, echo=TRUE, cache=TRUE, eval=TRUE}
-betasFile = "Data/betas.rds"
-psFile <- "Data/ps.rds"
-nFile <- "Data/sampleSize.rds"
-betas = readRDS(file = betasFile)
-ps = readRDS(file = psFile)
-tissueN = readRDS(file = nFile)
+betasFile = "/data/betas.rds"
+psFile <- "/data/ps.rds"
+nFile <- "/data/sampleSize.rds"
+betas <- readRDS(file = betasFile)
+ps <- readRDS(file = psFile)
+tissueN <- readRDS(file = nFile)
 
 ## substitute gene names for ensembl ids in ps and betas
 betas <- betas %>% mutate(gene_id = gsub("\\..+","", gene_id))
