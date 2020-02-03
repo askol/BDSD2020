@@ -416,7 +416,7 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 print(p)
 ```
 
-## `facet_grid`: Creating a matrix of plots to simply plotting multiple variables
+## `facet_grid`: Creating a matrix of plots to simplify plotting multiple variables
 Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can image, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use `facet_grid`.
 First, in order to make the plot look a little nicer we will add "chr" to the front of the chromosome number.
 ```{r} 
