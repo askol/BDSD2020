@@ -34,7 +34,9 @@ library(pheatmap)
 if (grepl("/Users/",getwd())){
   setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
 }else{
-  setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
+  if (grepl("/home/win/",getwd())){
+    setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
+  }
 }
 ```
 # Introduction: What is ggplot2
@@ -45,6 +47,20 @@ The goal of this tutorial is to gain experience with some of the most common plo
 You will gain experience with histograms, distributions, points, bar plots, violin plots, and heatmaps. 
 
 This tutorial is based on the "show as you go" philosophy, meaning instead of saying what I'm going to show you and why and what it does, I will instead show you how I did something and then we can talk about how it works. 
+
+# Get this tutorial
+The github repository for this tutorial can be found here:
+
+<https://github.com/askol/BDSD2020>
+
+And the data can be found here:
+
+<https://www.dropbox.com/s/2q6qiva7myc4zjn/betas.rds?dl=0>
+
+<https://www.dropbox.com/s/cg8ayt3zx3jnwjr/ps.rds?dl=0>
+
+<https://www.dropbox.com/s/0glmrh7zl3j35gg/sampleSize.rds?dl=0>
+
 
 # Data set: GTEx data (Genotype Tissue Expression Study (v7))
 
@@ -166,7 +182,8 @@ tissueN[1:4,]
 Now that we have some data to play with, we can start exploring how to perform some simple plotting functions using ggplot2.
 
 ## Number of eQTL as a function of tissue
-First we will plot the number of eQTL as a function of tissue using a histogram. Since a non-NA cell indicates that a variant is an eQTL, all we have to do is sum the number of non-NA cells in a column (tissue) to count the number of eQTL.
+First we will plot the number of eQTL as a function of tissue using a histogram. 
+Since a non-NA cell indicates that a variant is an eQTL, all we have to do is sum the number of non-NA cells in a column (tissue) to count the number of eQTL.
 
 ```{r makeeqtl, echo=TRUE, cache=TRUE}
 ## remove unwanted columns
@@ -188,7 +205,8 @@ for (c in unique(ps$chr)){
 ```
 
 ## The `ggplot` function
-Any `ggplot` plot type  will start with the `ggplot` function. It is used to define the dataset and the variables that will define the x and y axis (and other possible attributes). 
+Any `ggplot` plot type  will start with the `ggplot` function. 
+It is used to define the dataset and the variables that will define the x and y axis (and other possible attributes). 
 Aes is short of aesthetics, which defines the relationship between the variables in the dataframe and plot features.
 ```{r gg, echo=TRUE, eval=TRUE}
 options(width=100)
@@ -197,7 +215,9 @@ plot(p)
 ```
 
 ## The barplot: `geom_bar()`
+
 Next we add the `geom_` function that defines the type of plot we want. Here we use  `geom_bar`, because we want to make a barplot. These functions take arguments that are specific to the plot type and graphical elements specific to the plot type.
+
 ```{r bar, echo=T, eval=T}
 options(width=100)
 p <- p + geom_bar(stat="identity", fill = "steelblue") 
@@ -205,12 +225,15 @@ print(p)
 ```
 
 stat="identity" means that the values in the data.frame are the values to be plotted. The default is stat="count", in which case it will count the number of elements in the data.frame column.
-`fill` specifies the color of the bars. Later we'll see that fill can be used in another way to assign color to an attribute of the dataset.
+
+`fill` specifies the color of the bars. 
+
+Later we'll see that fill can be used in another way to assign color to an attribute of the dataset.
 
 ## Changing the look and feel of a plot using `theme()`
 There are a few things that we can do to make this plot look nicer.
 
-1. I find the grey background unattractive. There are predefined themes that provide alternatives. The one I use often is `theme_minimal`. Others to look at include: `theme_gray`, `theme_bw`, `theme_light`, `theme_dark`, `theme_classic`, `theme_void`. Others have created packages with other themes. You can also make your own.
+1. I find the grey background to be unattractive. There are predefined themes that provide alternatives. The one I use often is `theme_minimal`. Others to look at include: `theme_gray`, `theme_bw`, `theme_light`, `theme_dark`, `theme_classic`, `theme_void`. Others have created packages with other themes. You can also make your own.
 2. Angle the x-axis labels (tissues) and and adjust the font size so that the labels are legible. These are placed in the `theme` function.
 3. Rename the x- and y-axis.
 
@@ -753,6 +776,7 @@ Communicating effectively with plots can be extremely satisfying. Take your time
 ## ggplot cheat sheets
 
 <https://rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf>
+
 <https://github.com/rstudio/cheatsheets/raw/master/data-visualization-2.1.pdf>
 
 ## Data manipulation cheat sheet
@@ -764,12 +788,14 @@ Communicating effectively with plots can be extremely satisfying. Take your time
 ## ggplot tutorials
 
 <https://tutorials.iq.harvard.edu/R/Rgraphics/Rgraphics.html>
+
 <http://r-statistics.co/Complete-Ggplot2-Tutorial-Part1-With-R-Code.html>
+
 <https://cedricscherer.netlify.com/2019/08/05/a-ggplot2-tutorial-for-beautiful-plotting-in-r/>
+
 <http://www.sthda.com/english/wiki/be-awesome-in-ggplot2-a-practical-guide-to-be-highly-effective-r-software-and-data-visualization>
 
 ## R tutorials
-
 
 
 ## Colors in R reference
