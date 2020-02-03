@@ -18,6 +18,7 @@ library(ggrepel)
 library(annotables)
 library(Matrix)
 library(pheatmap)
+library(RColorBrewer)
 setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
 ```
 ## ggplot2
@@ -254,14 +255,17 @@ p <- ggplot(bs, aes(x=beta, fill=tissue)) + geom_density(alpha=.3) +
   theme_minimal() + theme(legend.title.align=0.5)
 print(p)       
 ```
+
 ## Boxplots and violin plots
 What if we wanted to compare more than two tissues. It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative very quickly. An alternative is to use a box and wisker plot. First we will select a subset of tssues and create an appropriately formated `data.frame`. We will also summarize the eQTL effects by gene, by calculating the mean eQTL effect for each gene. 
+
 ```{r echo=T, eval=T}
 tissSel <- c("symbol", "Adipose_Subcutaneous", 
              "Brain_Frontal_Cortex_BA9", 
              "Breast_Mammary_Tissue","Colon_Transverse", "Esophagus_Mucosa", 
              "Heart_Left_Ventricle","Liver", "Lung", "Muscle_Skeletal", 
              "Spleen", "Skin_Sun_Exposed_Lower_leg","Stomach")
+## choose only entries in tissSel
 tissueNabrv <- tissueN[tissueN$tissue %in% tissSel,]
 tissueNabrv$tissue <- droplevels(tissueNabrv$tissue)
 tissueNabrv$tissue <- factor(tissueNabrv$tissue, levels = 
