@@ -1,8 +1,13 @@
 ---
-title: 'BDSD 2020: Introduction to ggplot2'
+title: <center>'BDSD 2020\nIntroduction to ggplot2' </center>
 output:
-  pdf_document: default
-  html_document: default
+  html_document: 
+    toc: true
+    number_sections: true
+    toc_float:
+      collapsed: false
+      smooth_scrol: false
+##  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -17,14 +22,24 @@ library(knitr)
 library(ggrepel)
 library(annotables)
 library(Matrix)
+library(RColorBrewer)
 library(pheatmap)
-setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
+if (grepl("/Users/",getwd())){
+  setwd("/Users/askol/Dropbox (Personal)/Work/TalksGiven/BDSD_2020/")
+}else{
+  setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
+}
 ```
-## ggplot2
+# Introduction: What is ggplot2
+ggplot2 is an R package that, for all intents and purposes, has supplanted the native R plotting functions. ggplot2 is a very structed set of plotting functions that share substantial syntax across functions, making it substantially easier to transfer knowledge for different plotting purposes. The functions also a provide fine control over the look of plots, both in terms of layout, plot aethetics, and labelling. 
 
-Say something about ggplot2
+The goal of this tutorial is to gain experience with some of the most common plotting function, learn how to modify common plotting features, learn how to control color, and how to massage the data into the correct format for plotting. 
 
-## Dataset: Genotype Tissue Expression Study (v7)
+You will gain experience with histograms, distributions, points, bar plots, violin plots, and heatmaps. 
+
+# Data set: GTEx data (Genotype Tissue Expression Study (v7))
+
+## Data availability and content
 
 Data is accessible from: <https://gtexportal.org/home/datasets>
 
@@ -38,12 +53,16 @@ Information includes:
 3. pval_nominal
 4. slope
 
+## What is an eQTL
+
 ```{r fig.width=4, fig.height=4,echo=FALSE}
 img <- readPNG("eqtl.png")
  grid.raster(img)
 ```
 
+## Data construction
 The data from each tissue has been read in and stored in three data.frames.  The code to do this is here:
+
 ```{r readData, eval=FALSE}
 dataDir <- "/Users/askol/Dropbox (Personal)/GTEx/V7/GTEx_Analysis_v7_eQTL/"
 files <- dir(dataDir, pattern = "pairs")
@@ -82,7 +101,7 @@ ps <- data[[1]][,c("variant_id","symbol", "pval_nominal")] %>%
 ps <- ps %>% rename(!!tissues[1] := pval_nominal)
 
 for (i in 2:length(data)){
-  print(paste0("Mergeing ",tissues[i]))  
+  print(paste0("Merging ",tissues[i]))  
   tmp <- data[[i]][, c("variant_id","symbol","pval_nominal")] %>% 
     mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
   tmp <- tmp %>% rename(!!tissues[i] := pval_nominal)
@@ -95,7 +114,7 @@ betas <- data[[1]][,c("variant_id","symbol", "slope")] %>%
 betas <- betas %>% rename(!!tissues[1] := slope)
 
 for (i in 2:length(data)){
-  print(paste0("Mergeing ",tissues[i]))  
+  print(paste0("Merging ",tissues[i]))  
   tmp <- data[[i]][, c("variant_id","symbol","slope")] %>% 
    mutate(chr = gsub("_.+","",variant_id)) %>% filter(chr %in% c(1,6,20))
   tmp <- tmp %>% rename(!!tissues[i] := slope)
@@ -109,6 +128,8 @@ saveRDS(file = psFile, ps)
 betasFile = paste0(dataDir,"betas.rds")
 saveRDS(file = betasFile, betas)
 ```
+
+## Loading the data
 
 Let's load the ps and betas variables
 ```{r readRDS, echo=TRUE, cache=TRUE, eval=TRUE}
@@ -128,17 +149,29 @@ ps <- left_join(ps, grch38[,c("ensgene","symbol")], by=c("gene_id" = "ensgene"))
   mutate(symbol = ifelse(is.na(symbol), gene_id, symbol))
 ```
 
+# Setting up: the ggplot function
 Now that we have some data to play with, we can start exploring how to perform some simple plotting functions using ggplot2.
 
 ## Number of eQTL as a function of tissue
-First we'll plot the number of eQTL as a function of tissue using a historgram. Since a non-NA cell indicates that it is an eQTL, all we have to do is sum the number of non-NA cells in a column (tissue) to count the number of eQTL.
+First we will plot the number of eQTL as a function of tissue using a histogram. Since a non-NA cell indicates that it is an eQTL, all we have to do is sum the number of non-NA cells in a column (tissue) to count the number of eQTL.
 
 ```{r makeeqtl, echo=TRUE, cache=TRUE}
 neqtl <- ps %>% select(-chr, -variant_id, -gene_id, -symbol) 
 neqtl <- colSums(!is.na(neqtl))
 neqtl <- data.frame(tissue = names(neqtl), neqtl = neqtl)
+
+neqtlchr <- c()
+for (c in unique(ps$chr)){
+  
+    tmp <- ps %>% filter(chr == c) %>% 
+      select(-chr, -variant_id, -gene_id, --symbol)
+    tmp <- colSums(!is.na(tmp))
+    tmp <- data.frame(chr = c, tissue = names(tmp), neqtl=tmp)
+    neqtlchr = rbind(neqtlchr, tmp)
+}
 ```
 
+## The ggplot function
 Plots created with ggplot start with defining the dataset and the variables that will make up the x and y axis. 
 This is done using the ggplot function, defining data, and the aesthetic variables (aes).
 ```{r gg, echo=TRUE, eval=TRUE}
@@ -147,7 +180,8 @@ p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl))
 plot(p)
 ```
 
-Next we add the geom_ 'function' that defines the type of plot. Here we use  geom_bar, because we want to make a barplot. These functions take arguments that are specific to the plot type and graphical elements specific to the plot.
+## The barplot: geom_bar()
+Next we add the geom_ 'function' that defines the type of plot. Here we use  `geom_bar`, because we want to make a barplot. These functions take arguments that are specific to the plot type and graphical elements specific to the plot.
 ```{r bar, echo=T, eval=T}
 options(width=100)
 p <- p + geom_bar(stat="identity", fill = "steelblue") 
@@ -155,10 +189,12 @@ print(p)
 ```
 
 stat="identity" means that the value in the data.frame is the value to be plotted. The default is stat="count", in which case it will count the number of elements in the data.frame column.
+`fill` specifies the color of the bars. Later we'll see that fill can be used in another way to assign color to an attribute of the dataset.
 
+## Changing the look and feel of a plot using `theme`
 There are a few things that we can do to make this plot look nicer.
 
-1. I find the grey background unattractive. There are predefined themes that provide alternatives. The one I use often is theme_minimal.
+1. I find the grey background unattractive. There are predefined themes that provide alternatives. The one I use often is `theme_minimal`. Others to look at include: `theme_gray`, `theme_bw`, `theme_light`, `theme_dark`, `theme_classic`, `theme_void`. Others have created packages with other themes. You can also make your own.
 2. Angle the x-axis labels (tissues) so that they are legible.
 3. Rename the x- and y-axis.
 
@@ -174,7 +210,7 @@ p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl)) +
   print(p)
 ```
 
-One nice thing about ggplot is that the plot can be added to over multiple commands. This allows conditional statement to help determine what will be contained in the plot. 
+One nice thing about ggplot is that additional plotting commands can be added to the  plot variable (`p`) . This allows conditional statement to help determine what will be contained in the plot.
 
 ### Sorting factor variables and overlaying plots
 One challenge of plotting categorical variables is deciding how to order them on the x-axis in a meaningful or attractive manner.  Here, because different tissues have different numbers of samples, it may be reasonable to organize the tissues by samples size.
@@ -198,7 +234,7 @@ print(p)
 ```
 
 O.k. That's much better. But if we really want to know the relationship between sample size and the number of eQTL, then let's plot the number of samples of each tissue type on the same plot.
-To do this we have to do two things. First is to plot the sample size. We'll use geom_points to do this. The other thing, is that scale of the number of eQTL and number of samples is quite different. 
+To do this we have to do two things. First is to plot the sample size. We'll use geom_points to do this. The second is to scale the value of the number of samples, sincce the number of eQTL and number of samples is quite different. 
 ```{r range, echo=TRUE, eval=TRUE}
 range(tissueN$N)
 range(neqtl$neqtl)
@@ -213,9 +249,10 @@ print(p)
 ```
 
 ## Distributions
-Now we'll consider the effect sizes of eQTL in order to see how to plot distributions  (the relative frequence of the variable's values).
-Let's first use the histogram to look at the distribution of eQTL effects.  To make things simpler, and to demonstrate how to compare distributions, we will focus on two tissues: "Skeletal Muscle and Subcutaneous Adipose"
+Now we'll consider the effect sizes of eQTL in order to see how to plot distributions  (the relative frequency of the variable's values).
+Let's first use the histogram to look at the distribution of eQTL effects.  To make things simpler, and to demonstrate how to compare distributions, we will focus on two tissues: Skeletal Muscle and Subcutaneous Adipose
 
+### Preparing the data for plotting
 ```{r betaprep, echo=T, eval=T}
 TissSel <- c("Muscle_Skeletal", "Adipose_Subcutaneous")
 bs <- betas %>% select(!!TissSel)
@@ -224,29 +261,35 @@ bs <- as.data.table(bs)
 bs <- melt(bs, measure=1:2, variable.name="tissue", value.name = "beta", na.rm=TRUE)
 ```
 
-The function `melt` is very important for preparing data for `ggplot`. It transforms a data.frame from a wide rectangle to a long rectangle, whereby a subset of the column headers are converted to a column of values (specificied by variable.name), and the values in the converted columns are converted to another column (specificed by value.name).  If there are columns that are not to be "longified" they are specified by id.vars.
-```{r printbetas, echo=T, eval=T}
-betas[1:4,TissSel]
-```
-This is what the transformation looks like for the data that were going to be plotting:
-```{r echo=T, eval=T}
+The function `melt` is very important for preparing data for `ggplot`. It transforms a `data.frame` from a wide rectangle to a long rectangle, whereby a subset of the column headers are converted to a column of values (specified by variable.name), and the values in the converted columns are converted to another column (specified by value.name).  If there are columns that are not to be "longified" they are specified by `id`. We don't need it above, but we'll use it later.
+Below is what the data looks like before and after melting.
+
+```{r before, echo=T, eval=T}
 bs[1:4,]
 ```
+```{r after, echo=T, eval=T }
+betas[1:4,TissSel]
+```
 
-A histrogram of the distribution of all the values is created using `geom_hist`
+### histogram function
+A histogram of the distribution of all the values is created using `geom_hist`
 ```{r echo=T, eval=T}
 options(width=100)
 p <- ggplot(data=bs, aes(x = abs(beta))) +
-  geom_histogram(binwidth=.1, colour="black", fill="white")
+  geom_histogram(binwidth=.1, colour="black", fill="white") +
+  theme_minimal()
+
 print(p)
 ```
+
+### Density function
 If you prefer density functions, you can use `geom_density`
 ```{r, echo=T, eval=T}
 p <- ggplot(bs, aes(x = abs(beta))) + geom_density(adjust = 1.15)
 print(p)
 ```
 
-What we really wanted to do was compare the distribution of effect sizes for different tissue types. To do this, we will use the fill attribute of the density function that is avalable within the `ggplot` function (or the `geom_density` function)
+What we really wanted to do was compare the distribution of effect sizes for different tissue types. To do this, we will use the fill attribute of the density function that is available within the `ggplot` function (or the `geom_density` function)
 ```{r densitytwotissues, echo=T, eval=TRUE}
 options(width=100)
 p <- ggplot(bs, aes(x=beta, fill=tissue)) + geom_density(alpha=.3) + 
@@ -254,8 +297,11 @@ p <- ggplot(bs, aes(x=beta, fill=tissue)) + geom_density(alpha=.3) +
   theme_minimal() + theme(legend.title.align=0.5)
 print(p)       
 ```
+
 ## Boxplots and violin plots
-What if we wanted to compare more than two tissues. It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative very quickly. An alternative is to use a box and wisker plot. First we will select a subset of tssues and create an appropriately formated `data.frame`. We will also summarize the eQTL effects by gene, by calculating the mean eQTL effect for each gene. 
+What if we wanted to compare more than two tissues. It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative quickly. An alternative is to use a box and whisker plot. First we will select a subset of tissues and create an appropriately formatted `data.frame`. We will also summarize the eQTL effects by gene, by calculating the mean eQTL effect for each gene. 
+
+### Preparing data for box and violin plots
 ```{r echo=T, eval=T}
 tissSel <- c("symbol", "Adipose_Subcutaneous", 
              "Brain_Frontal_Cortex_BA9", 
@@ -276,6 +322,7 @@ bs <- bs %>% group_by(symbol, tissue) %>%
 bs <- bs %>% filter(!is.na(m.beta)) %>% 
   mutate(tissue = factor(tissue, levels = levels(tissueNabrv$tissue)))
 ```
+
 Now we will plot these gene-based mean eQTL effect sizes across tissues. 
 ```{r echo=T, eval=T}
 options(width=120)
@@ -288,7 +335,9 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
   
 print(p)
 ```
-Now, what if we wanted to know if the effect size distribution differs by chromosomal location. To do this, we can use another aesthitic attribute. In this case we'll use the fill attribute.
+
+### Using additional attributes to communicate additional information
+Now, what if we wanted to know if the effect size distribution differs by chromosomal location. To do this, we can use another aesthetic attribute. In this case, we'll use the fill attribute.
 ```{r echo=T, eval=T}
 bs$chr <- factor(bs$chr, levels = c("1","6","20"))
 options(width=120)
@@ -302,7 +351,8 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta, fill = chr)) +
 
 print(p)
 ```
-## The violin plot
+
+### The violin plot
 The barplot gives us valuable information about the distribution, but is not as informative as the full distribution. The violin plot is a way to better visualize the full distribution. Not surprisingly, the plot function is `geom_violin`.
 ```{r violin, echo=T, eval=T}
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
@@ -314,6 +364,7 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
   
 print(p)
 ```
+
 It is not uncommon to plot the points on top of the violins. Our data happens to have a very large number of points. In order to "thin" out the data, we can use the `alpha` parameter in the `geom_jitter` function.
 ```{r violpoints, echo=T, eval=T}
 p <- p + geom_jitter(width = 0.1, alpha=.01)
@@ -321,7 +372,7 @@ print(p)
 ```
 
 ## Adding text to plots
-ggplot makes adding labels to plots pretty easy. As an example, let's label the genes that have the larges and smallest value in each tissue on each chromosome. First, it's useful to identify the minimum and maximum value for each tissue/chromosome.
+`ggplot` makes adding labels to plots pretty easy. As an example, let's label the genes that have the larges and smallest value in each tissue on each chromosome. First, it's useful to identify the minimum and maximum value for each tissue/chromosome.
 ```{r label, eval=T, echo=T}
 bs <- bs %>% group_by(tissue, chr) %>% 
   mutate(min.lab = ifelse(m.beta == min(m.beta), gsub("ENSG0+","", symbol), ""),
@@ -329,6 +380,7 @@ bs <- bs %>% group_by(tissue, chr) %>%
          lab = ifelse(m.beta %in% c(max(m.beta), min(m.beta)), 
                                     gsub("ENSG0+","", symbol), ""))
 ```
+
 Now we use `geom_text`.
 ```{r plotlabel, eval=T, echo=T}
 options(width=120)
@@ -345,6 +397,7 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 print(p)
 ``` 
 
+### `repel` for prettier labels
 When points are this close together, it's really trick to get the labels to look nice. There is a fantastic package called `repel` which can help.  Here's how you use it.
 ```{r repel, echo=T, eval=T}
 options(width=120)
@@ -363,7 +416,7 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 print(p)
 ```
 
-## Creating a matrix of plots to simply plotting multiple variables per plot
+## `facet_grid`: Creating a matrix of plots to simply plotting multiple variables
 Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can image, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use `facet_grid`.
 First, in order to make the plot look a little nicer we will add "chr" to the front of the chromosome number.
 ```{r} 
@@ -384,7 +437,7 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 print(p)
 ```
 
-If you prefer have chromsome along the verticle axis, just change the `chr~.` to `.~chr`
+If you prefer have chromosome along the vertical axis, just change the `chr~.` to `.~chr`
 ```{r faceth, echo=T, eval=T}
 options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
@@ -398,9 +451,11 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 
 print(p)
 ```
-## Plotting similarity
+# Plotting similarity and `heatmaps`
 Next we are going to explore heatmaps, which are useful for comparing the pairwise correlation or other similarity measures between variables.
 For our data, we will calculate the proportion of eQTL shared between tissues. We can do this using the `ps` data frame which has tissues as columns, variant-gene combinations as rows, and each cell contains a p-value is the variant-gene is an eQTL for the tissue and NA otherwise.  We will turn these into counts in the following way:
+
+## Creating data for plotting a heatmap
 ```{r corr, eval=T, echo=T}
 tissSel <- c("Adipose_Subcutaneous", 
              "Brain_Frontal_Cortex_BA9", 
@@ -408,12 +463,17 @@ tissSel <- c("Adipose_Subcutaneous",
              "Heart_Left_Ventricle","Liver", "Lung", "Muscle_Skeletal", 
              "Spleen", "Skin_Sun_Exposed_Lower_leg","Stomach")
 tissim <- ps[, tissSel]
+## Only keep snp-genes pairs that are eQTLs for at least one tissue
 tissim <- tissim[rowSums(!is.na(tissim)) > 0 , ]
+## Convert from p-value to 1/0 eQTL yes/no
 tissim <- 1*(is.na(tissim) == FALSE)
 tissim <- Matrix(tissim, sparse=T)
 
+## Create a matrix that counts the number of eQTL-gene shared between tissues
 tisNshare <- t(tissim) %*% tissim
+## Determine the total number of eQTL-tissues that were eQTL for at least one of the two tissues
 tisNeither<- nrow(tissim) - t(tissim == 0) %*% (tissim == 0) 
+## Determine the proportion of eQTL shared between tissues
 tisShareProp <- tisNshare/tisNeither
 tisShareProp <- as.matrix(tisShareProp)
 tisShareProp <- as.data.table(tisShareProp, stringAsFactor=FALSE)
@@ -476,7 +536,7 @@ p <- p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
 print(p)
 ```
 
-The other common need when plotting similarities is to organize the columns and rows so as to show patterns, which makes interpretting and communicating your results easier. Some heatmap function in R will do this for you. With a couple extra steps you can do it with geom_tile too.  We will employ the heirachicical clustering function,`hclust`, to do this. 
+The other common need when plotting similarities is to organize the columns and rows so as to show patterns, which makes interpreting and communicating your results easier. Some heatmap function in R will do this for you. With a couple extra steps you can do it with geom_tile too.  We will employ the hierarchical clustering function,`hclust`, to do this. 
 First we reshape the data, which we would have to do for any other heatmap function.
 
 ```{r cast, echo=T, eval=T}
@@ -515,7 +575,7 @@ p <- p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
 print(p)
 ```
 
-One of the heamap functions that will do the clustering automatically is `pheatmap`. `heatmap.2` is another, which is within the `gplots` package. `pheatmap` uses hclust internally and allows you to change `hclust` arguements inside the `pheatmap` function.
+One of the heamap functions that will do the clustering automatically is `pheatmap`. `heatmap.2` is another, which is within the `gplots` package. `pheatmap` uses hclust internally and allows you to change `hclust` arguments inside the `pheatmap` function.
 ```{r pheat, echo=T, eval=T}
 pheatmap(tp2)
 ```
@@ -526,27 +586,108 @@ While the cladogram is informative, this might be a more attractive plot without
 pheatmap(tp2, cluster_rows=FALSE, cluster_cols=FALSE)
 ```
 
-Unforunately, when you don't cluster the rows or columns it not only omits the cladogram, but it doesn't perform the clustering either. We can apply the same trick we did previously to reorder the rows and columns, however this time we have to literally reorder the rows and columns. 
-`pheatmap` aslo makes it very easy to add the value being plotted into the figure. 
+Unfortunately, when you don't cluster the rows or columns it not only omits the cladogram, but it doesn't perform the clustering either. We can apply the same trick we did previously to reorder the rows and columns, however this time we have to literally reorder the rows and columns. 
+`pheatmap` also makes it very easy to add the value being plotted into the figure. 
 ```{r reorder, echo=T, eval=T}
   ord <- hclust( dist(tp2, method = "euclidean"), method = "ward.D" )$order
   tp2 <- tp2[ord, ord]
   pheatmap(tp2, cluster_rows=FALSE, cluster_cols=FALSE, display_numbers=TRUE)
 ```
 
-Having the correct color scale can make a big differce in the effectiveness of a heatmap, and interestingly, the bst colors palletes for a dataset will often differ as a function of the application.
+Having the correct color scale can make a big difference in the effectiveness of a heatmap, and interestingly, the best colors palettes for a dataset will often differ as a function of the application.
 RColorBrewer is a very popular package from which to select predefined color palettes.  To see what pallets are available, you can. . .
 ```{r rcb, eval=T, echo=T}
 display.brewer.all()
 ```
-To use a pallete while plotting, we can do the following. . .
+To use a palette while plotting, we can do the following. . .
 ```{r plotrcb, eval=T, echo=T}
   pheatmap(tp2, color=brewer.pal(n=8, name="YlOrRd"))
 ```
-In `ggplot` there is a lot more flexibility in how colors are chosen. One really useful arguements from within 
+In `ggplot` there is a lot more flexibility in how colors are chosen. There are four main arguments within ggplot that let you control color:
 
-## Useful Links
-Colors
+1. scale_color_manual
+2. scale_color_gradient
+3. scale_color_gradient2
+4. scale_color_gradientn
+5. scale_color_brewer
+6. scale_color_grey
+
+Below are examples of each:
+
+1. `scale_fill_manual`
+```{r manual, echo=T, eval=T}
+toplot <- toplot %>% mutate(PropShareCat = cut(PropShare, breaks = seq(0,.5,by=.1)))
+q <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
+   theme(axis.text.x = element_text(angle = 45), 
+        axis.text=element_text(size=12, hjust=1), 
+        axis.text.y = element_text(angle = 45),
+        axis.title = element_text(hjust=.5)) +
+  coord_equal() + xlab("Tissue") + ylab("Tissue") 
+ 
+  p <- q + geom_tile(aes(fill = PropShareCat)) +
+  scale_fill_manual(name = "Proportion\nneQTL shared", 
+                      values = c("pink","hotpink","orchid1","maroon2","red")) +
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5)  
+print(p)
+```
+
+2. scale_fill_gradient: Allows for a continuous gradient between two colors. 
+```{r gradient, echo=T, eval=T}
+p <- q + geom_tile(aes(fill = PropShare)) +
+  scale_fill_gradient(name = "Proportion\nneQTL shared", 
+                      low = "yellow", high="red") +
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5)  
+print(p)
+```
+
+3. scale_fill_gradient2: Allow for a continuous gradient between two sets of color pairs.
+```{r gradient2, echo=T, eval=T}
+p <- q + geom_tile(aes(fill = PropShare)) +
+  scale_fill_gradient2(name = "Proportion\nneQTL shared", 
+                      low = "blue", mid= "white", high="red", 
+                      midpoint = .3) +
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5)  
+print(p)
+```
+
+4. scale_fill_gradientn: Allow for a continuous gradient between multiple sets of color pairs.
+```{r gradientn, echo=T, eval=T}
+p <- q + geom_tile(aes(fill = PropShare)) +
+  scale_fill_gradientn(name = "Proportion\nneQTL shared", 
+                      colors= c("pink","hotpink","orchid1","maroon2","red"), 
+                      values = c(0,.4,.6,.7,.8, 1)) +
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5)  
+print(p)
+```
+
+5. scale_fill_brewer: Allow for easy integration of RColorBrewer palettes. Works on discrete scale only. 
+```{r brewer, echo=T, eval=T}
+p <- q + geom_tile(aes(fill = PropShareCat)) +
+  scale_fill_brewer(name = "Proportion\nneQTL shared", 
+                      palette="Blues") +
+  geom_text(aes(label = as.character(round(PropShare, 2))), 
+            size = 2.5)  
+print(p)
+```
+
+# Summary
+
+# Useful Links
+##Cheat sheets
+<https://rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf>
+<https://github.com/rstudio/cheatsheets/blob/master/data-visualization-2.1.pdf>
+
+##Tutorials
+<https://tutorials.iq.harvard.edu/R/Rgraphics/Rgraphics.html>
+<http://r-statistics.co/Complete-Ggplot2-Tutorial-Part1-With-R-Code.html>
+<https://cedricscherer.netlify.com/2019/08/05/a-ggplot2-tutorial-for-beautiful-plotting-in-r/>
+<http://www.sthda.com/english/wiki/be-awesome-in-ggplot2-a-practical-guide-to-be-highly-effective-r-software-and-data-visualization>
+
+##Colors
 <https://www.nceas.ucsb.edu/~frazier/RSpatialGuides/colorPaletteCheatsheet.pdf>
 
 
