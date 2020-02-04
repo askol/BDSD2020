@@ -538,7 +538,7 @@ tissim <- Matrix(tissim, sparse=T)
 ## Create a matrix that counts the number of eQTL-gene shared between tissues
 tisNshare <- t(tissim) %*% tissim
 ## Determine the total number of eQTL-tissues that were eQTL for at least one of the two tissues
-tisNeither<- nrow(tissim) - t(tissim == 0) %*% (tissim == 0) 
+tisNeither<- nrow(tissim) - t(1*(tissim == 0)) %*% (1*(tissim == 0)) 
 ## Determine the proportion of eQTL shared between tissues
 tisShareProp <- tisNshare/tisNeither
 tisShareProp <- as.matrix(tisShareProp)
