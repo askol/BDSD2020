@@ -19,7 +19,6 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-
 library(png)
 library(grid)
 library(dplyr)
@@ -37,10 +36,8 @@ library(pheatmap)
 ##  if (grepl("/home/win/",getwd())){
 ##    setwd("L:/medex/askol/PresentationTalks/Others/BDSD2020")
 ##  }
-
 ## BDSD session
-setwd("~/workshop_files")
-}
+##setwd("~/workshop_files")
 ```
 # Introduction: What is ggplot2
 ggplot2 is an R package that, for all intents and purposes, has supplanted the native R plotting functions. ggplot2 is a very structed set of plotting functions that share substantial syntax across functions, making it easier to transfer knowledge for different plotting purposes. The functions also provide fine control over the look of plots, both in terms of layout, plot aethetics, and labelling. 
@@ -161,9 +158,17 @@ saveRDS(file = betasFile, betas)
 
 Let's load the ps and betas variables
 ```{r readRDS, echo=TRUE, cache=TRUE, eval=TRUE}
-betasFile = "/data/betas.rds"
-psFile <- "/data/ps.rds"
-nFile <- "/data/sampleSize.rds"
+## Determine the files needed based on current directory structure
+if (grepl("/Users/askol/",getwd())){
+  betasFile = "Data/betas.rds"
+  psFile <- "Data/ps.rds"
+  nFile <- "Data/sampleSize.rds"
+}else{
+  betasFile = "/data/betas.rds"
+  psFile <- "/data/ps.rds"
+  nFile <- "/data/sampleSize.rds"
+}
+
 betas <- readRDS(file = betasFile)
 ps <- readRDS(file = psFile)
 tissueN <- readRDS(file = nFile)
@@ -212,7 +217,6 @@ Any `ggplot` plot type  will start with the `ggplot` function.
 It is used to define the dataset and the variables that will define the x and y axis (and other possible attributes). 
 Aes is short of aesthetics, which defines the relationship between the variables in the dataframe and plot features.
 ```{r gg, echo=TRUE, eval=TRUE}
-options(width=100)
 p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl)) 
 plot(p)
 ```
@@ -222,7 +226,6 @@ plot(p)
 Next we add the `geom_` function that defines the type of plot we want. Here we use  `geom_bar`, because we want to make a barplot. These functions take arguments that are specific to the plot type and graphical elements specific to the plot type.
 
 ```{r bar, echo=T, eval=T}
-options(width=100)
 p <- p + geom_bar(stat="identity", fill = "steelblue") 
 print(p)
 ```
@@ -231,7 +234,7 @@ stat="identity" means that the values in the data.frame are the values to be plo
 
 `fill` specifies the color of the bars. 
 
-Later we'll see that fill can be used in another way to assign color to an attribute of the dataset.
+Later we'll see that `fill` can be used in another way to assign color to an attribute of the dataset.
 
 ## Changing the look and feel of a plot using `theme()`
 There are a few things that we can do to make this plot look nicer.
@@ -241,7 +244,6 @@ There are a few things that we can do to make this plot look nicer.
 3. Rename the x- and y-axis.
 
 ```{r barplot, echo=TRUE, eval=TRUE}
-options(width=100)
 p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl)) + 
   geom_bar(stat="identity", fill = "steelblue") +
   theme_minimal() +
@@ -266,7 +268,6 @@ neqtl$tissue <- factor(neqtl$tissue,
 ```
 Next we repeat the plot above.
 ```{r repeat, eval=TRUE, echo=TRUE}
-options(width=100)
 p <- ggplot(neqtl, aes(x=tissue, y=neqtl)) + 
   geom_bar(stat="identity", fill = "steelblue") +
   theme_minimal() +
@@ -278,7 +279,7 @@ print(p)
 ```
 
 O.k. That's much better. But if we really want to know the relationship between sample size and the number of eQTL, then let's plot the number of samples of each tissue type on the same plot.
-To do this we have to do two things. First is to plot the sample size. We'll use geom_points to do this. The second is to scale the value of the number of samples, sincce the number of eQTL and number of samples is quite different. 
+To do this we have to do two things. First is to plot the sample size. We'll use geom_points to do this. The second is to scale the value of the number of samples, since the number of eQTL and number of samples is quite different. 
 ```{r range, echo=TRUE, eval=TRUE}
 range(tissueN$N)
 range(neqtl$neqtl)
@@ -286,7 +287,6 @@ factorN <- 494913/3288
 ```
 
 ```{r scale, echo = TRUE, eval = TRUE}
-options(width=100)
 p <- p + geom_point(aes(x=tissue, y=N*factorN), color="darkred") + 
   scale_y_continuous(sec.axis = sec_axis(~./factorN, name = "Sample Size")) +
   theme(axis.title.y.right = element_text(color = "darkred", face="bold"), 
@@ -321,10 +321,9 @@ betas[1:4,TissSel]
 bs[1:4,]
 ```
 
-### histogram function
+### `geom_histogram` function
 A histogram of the distribution of all the values is created using `geom_hist`
 ```{r echo=T, eval=T}
-options(width=100)
 p <- ggplot(data=bs, aes(x = abs(beta))) +
   geom_histogram(binwidth=.1, colour="black", fill="white") +
   theme_minimal()
@@ -332,9 +331,9 @@ p <- ggplot(data=bs, aes(x = abs(beta))) +
 print(p)
 ```
 
-You can also specify the number of bins (`bins=`), the actualy breaks for the bins (`breaks=`), and if the intervals are left or right closed (`closed=<left/right>`)
+You can also specify the number of bins (`bins=`), the location for the bin breaks(`breaks=`), and if the intervals are left or right closed (`closed=<left/right>`).
 
-### Density function
+### `gemo_density` function
 If you prefer density functions, you can use `geom_density`
 ```{r, echo=T, eval=T}
 p <- ggplot(bs, aes(x = abs(beta))) + geom_density(adjust = 1.15)
@@ -343,7 +342,6 @@ print(p)
 
 What we really wanted to do was compare the distribution of effect sizes for different tissue types. To do this, we will use the fill attribute of the density function that is available within the `ggplot` function (or the `geom_density` function)
 ```{r densitytwotissues, echo=T, eval=TRUE}
-options(width=100)
 p <- ggplot(bs, aes(x=abs(beta), fill=tissue)) + geom_density(alpha=.3) + 
   scale_fill_discrete(name = "Tissue", 
                       labels=c("Muscle (skeletal)", "Adipose (subcutaneous)")) + 
@@ -358,7 +356,7 @@ print(p)
 ```
 
 ## Boxplots and violin plots
-What if we wanted to compare more than two tissues. It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative quickly. An alternative is to use a box and whisker plot. First we will select a subset of tissues and create an appropriately formatted `data.frame`. We will also summarize the eQTL effects by gene, by calculating the median eQTL effect for each gene. 
+What if we wanted to compare more than two tissues? It's not hard to imagine that looking at more than 2 or 3 tissues via overlapping densities will start to get ugly and uninformative quickly. An alternative is to use a box and whisker plot. First we will select a subset of tissues and create an appropriately formatted `data.frame`. We will also summarize the eQTL effects by gene, by calculating the median eQTL effect for each gene. 
 
 ### Preparing data for box and violin plots
 We again get our data in the correct format to plot. Below we will get the number of samples in each of the tissues of interest and order the factor levels in descreasing order. 
@@ -389,11 +387,12 @@ bs <- bs %>% group_by(symbol, tissue) %>%
 ## Remove rows that contain NAs and reorder the factor levels
 bs <- bs %>% filter(!is.na(m.beta)) %>% 
   mutate(tissue = factor(tissue, levels = levels(tissueNabrv$tissue)))
+
+ bs[1:4,]
 ```
 
 Now we will plot these gene-based median eQTL effect sizes across tissues. 
 ```{r echo=T, eval=T}
-options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
   geom_boxplot() + theme_minimal() +
   theme(text=element_text(size=10),
@@ -407,8 +406,7 @@ print(p)
 ### Using additional attributes to communicate additional information
 Now, what if we wanted to know if the effect size distribution differs by chromosomal location. To do this, we can use another aesthetic attribute. In this case, we'll use the fill attribute.
 ```{r echo=T, eval=T}
-bs$chr <- factor(bs$chr, levels = c("1","6","20"))
-options(width=120)
+bs$chr <- factor(bs$chr, levels = c("1","6","20"))`
 p <- ggplot(bs, aes(x = tissue, y = m.beta, fill = chr)) + 
   geom_boxplot() + theme_minimal() +
   theme(text=element_text(size=10),
@@ -451,7 +449,6 @@ bs <- bs %>% group_by(tissue, chr) %>%
 
 Now we use `geom_text`.
 ```{r plotlabel, eval=T, echo=T}
-options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
   geom_boxplot() + 
   geom_text(aes(label = max.lab), size = 2, angle=0, vjust=-1) +
