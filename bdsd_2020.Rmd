@@ -42,7 +42,7 @@ library(pheatmap)
 # Introduction: What is ggplot2
 ggplot2 is an R package that, for all intents and purposes, has supplanted the native R plotting functions. ggplot2 is a very structed set of plotting functions that share substantial syntax across functions, making it easier to transfer knowledge for different plotting purposes. The functions also provide fine control over the look of plots, both in terms of layout, plot aethetics, and labelling. 
 
-The goal of this tutorial is to gain experience with some of the most common plotting function, learn how to modify common plotting features, learn how to control color, and how to massage the data into the correct format for plotting. 
+The goal of this tutorial is to gain experience with some of the most common plotting functions, learn how to modify common plotting features, learn how to control color, and how to massage the data into the correct format for plotting. 
 
 You will gain experience with histograms, distributions, points, bar plots, violin plots, and heatmaps. 
 
@@ -215,7 +215,7 @@ for (c in unique(ps$chr)){
 ## The `ggplot` function
 Any `ggplot` plot type  will start with the `ggplot` function. 
 It is used to define the dataset and the variables that will define the x and y axis (and other possible attributes). 
-Aes is short of aesthetics, which defines the relationship between the variables in the dataframe and plot features.
+Aes is short for aesthetics, which defines the relationship between the variables in the dataframe and plot features.
 ```{r gg, echo=TRUE, eval=TRUE}
 p <- ggplot(data=neqtl, aes(x=tissue, y=neqtl)) 
 plot(p)
