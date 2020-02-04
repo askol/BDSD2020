@@ -406,7 +406,7 @@ print(p)
 ### Using additional attributes to communicate additional information
 Now, what if we wanted to know if the effect size distribution differs by chromosomal location. To do this, we can use another aesthetic attribute. In this case, we'll use the fill attribute.
 ```{r echo=T, eval=T}
-bs$chr <- factor(bs$chr, levels = c("1","6","20"))`
+bs$chr <- factor(bs$chr, levels = c("1","6","20"))
 p <- ggplot(bs, aes(x = tissue, y = m.beta, fill = chr)) + 
   geom_boxplot() + theme_minimal() +
   theme(text=element_text(size=10),
