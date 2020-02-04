@@ -463,9 +463,8 @@ print(p)
 ``` 
 
 ### `repel` for prettier labels
-When points are this close together, it's really trick to get the labels to look nice. There is a fantastic package called `repel` which can help.  Here's how you use it.
+When points are this close together, it's really tricky to get the labels to look nice. There is a fantastic package called `repel` which can help.  Here's how you use it.
 ```{r repel, echo=T, eval=T}
-options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
   geom_boxplot() + 
   ## aes can be used within the plotting functions themselves
@@ -483,14 +482,13 @@ print(p)
 ```
 
 ## `facet_grid`: Creating a matrix of plots to simplify plotting multiple variables
-Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can image, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use `facet_grid`.
+Recall our boxplot that printed the distribution of betas for chromosomes 1, 6 and 20 next to each other. As you can imagine, if we labelled gene names on that plot it would be a mess. For this reason, and others, sometimes it is better to repeat a simpler plot multiple times as a function of an addition variable (e.g. chromosome) in an organized way. One way to do this is to use `facet_grid`.
 First, in order to make the plot look a little nicer we will add "chr" to the front of the chromosome number.
 ```{r} 
 bs$chr <- factor(paste0("chr", bs$chr), levels = c("chr1","chr6","chr20"))
 ```
 
 ```{r facet, echo=T, eval=T}
-options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
   geom_boxplot() + 
   ## the y ~ x is an equation like arguement that shows how to organize the variables used to create 
@@ -505,9 +503,8 @@ p <- ggplot(bs, aes(x = tissue, y = m.beta)) +
 print(p)
 ```
 
-If you prefer have chromosome along the vertical axis, just change the `chr~.` to `.~chr`
+If you prefer to have chromosome along the vertical axis, just change the `chr~.` to `.~chr`
 ```{r faceth, echo=T, eval=T}
-options(width=120)
 p <- ggplot(bs, aes(x = tissue, y = m.beta)) + 
   geom_boxplot() + 
   facet_grid(.~chr) +
@@ -573,9 +570,6 @@ p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
         axis.title = element_text(hjust=.5)) +
   xlab("Tissue") + ylab("Tissue")
 
-  ## COLOR LABELS TO HELP IDENTIFY WHO IS WHO ##
-  #theme(axis.text.x = element_text(angle = 90, color = STclr)) + 
-  #scale_color_manual(values=clrLvl)
 print(p)
 ```
 
@@ -608,8 +602,10 @@ p <- p <- ggplot(toplot, aes(x=Tissue1, y=Tissue2)) +
         axis.text=element_text(size=12, hjust=1), 
         axis.text.y = element_text(angle = 45),
         axis.title = element_text(hjust=.5)) +
+  ## enforce rectables to be squares
   coord_equal() +
-  scale_fill_gradient(name = "Proportion\nneQTL shared", 
+  ## set colors for the fill color
+  scale_fill_gradient(name = "Proportion\neQTL shared", 
                       low = "white", high = "red") +
   xlab("Tissue") + ylab("Tissue") + 
   ## add text to cells
@@ -767,7 +763,7 @@ print(p)
 `ggplot` is an extremely powerful and generally intuitive enviroment with which to create a bevy of different types of plots. Most of the plots have a common structure and expect data in a similar organization. There are a number of packages that have been created that integrate with ggplot2, such as `repel`, which extend the basic (and extensive) ggplot functionality. 
 While the documentation is pretty good for ggplot, sometimes it's nice to see examples. Google is your friend here. 
 
-Creating excellent and informative plots is an iterative process, and often time consuming process. Be patient, especially if you are just getting started with `ggplot2`. When you think you are done, show your plots to a collegue, or your mother, and see if they can understand what you are trying to communicate. No one should ever have to ask you what is plotted on an axis or what a color or a dot size represents. There are lots of guides out there for effective communication of numbers. There's even a paper in PLoS Computational Biology (<https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4161295/>).  
+Creating excellent and informative plots is an iterative process, and often time consuming Be patient, especially if you are just getting started with `ggplot2`. When you think you are done, show your plots to a collegue, or your mother, and see if they can understand what you are trying to communicate. No one should ever have to ask you what is plotted on an axis or what a color or a dot size represents. There are lots of guides out there for effective communication of numbers. There's even a paper in PLoS Computational Biology (<https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4161295/>).  
 
 Communicating effectively with plots can be extremely satisfying. Take your time and have fun. Good luck.
 
@@ -794,9 +790,6 @@ Communicating effectively with plots can be extremely satisfying. Take your time
 <https://cedricscherer.netlify.com/2019/08/05/a-ggplot2-tutorial-for-beautiful-plotting-in-r/>
 
 <http://www.sthda.com/english/wiki/be-awesome-in-ggplot2-a-practical-guide-to-be-highly-effective-r-software-and-data-visualization>
-
-## R tutorials
-
 
 ## Colors in R reference
 
